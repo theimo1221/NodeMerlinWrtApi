@@ -47,19 +47,22 @@ export class NodeMerlinWrtApi {
     const requestData = {
       hook: 'get_clientlist()',
     };
-    const response: Response = await fetch(`${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`, {
-      agent: this._agent,
-      method: 'GET',
-      headers: {
-        accept: 'application/json, text/javascript, */*; q=0.01',
-        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-        'cache-control': 'no-cache',
-        referer: `${this._routerAddress}/index.asp`,
-        cookie: `asus_token=${this._authToken}; HttpOnly;`,
-        connection: 'close',
+    const response: Response = await fetch(
+      `${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
+      {
+        agent: this._agent,
+        method: 'GET',
+        headers: {
+          accept: 'application/json, text/javascript, */*; q=0.01',
+          'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+          'cache-control': 'no-cache',
+          referer: `${this._routerAddress}/index.asp`,
+          cookie: `asus_token=${this._authToken}; HttpOnly;`,
+          connection: 'close',
+        },
+        body: undefined,
       },
-      body: undefined,
-    });
+    );
     return response.json();
   }
 
