@@ -4,7 +4,7 @@
   Placeholder for the next version (at the beginning of the line):
   ## **WORK IN PROGRESS**
 -->
-## **WORK IN PROGRESS**
+## 0.0.2-alpha.1 (2022-07-10)
 * (theimo1221) Refactoring
 * (theomo1221) Implement Basic Client Models
 
