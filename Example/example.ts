@@ -6,7 +6,8 @@ console.log('Api created');
 api.getAuthToken().then((token) => {
   console.log(`New Auth Token: "${token}"`);
   api.getClientList().then((data) => {
-    console.log(`Recieved client List: ${JSON.stringify(data)}`);
+    console.log(`Recieved clients macs: ${JSON.stringify(data.macList)}`);
+    console.log(`First client: ${JSON.stringify(data.clients.values().next())}`);
     api.logout().then(() => {
       process.exit(1);
     });

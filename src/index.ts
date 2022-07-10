@@ -1,5 +1,8 @@
 import fetch, { HeaderInit, Response } from 'node-fetch';
 import { Agent } from 'https';
+import { ClientList, GetClientListResponse } from "./Models";
+
+export * from './Models';
 
 export class NodeMerlinWrtApi {
   private _authToken: string = '';
@@ -43,7 +46,7 @@ export class NodeMerlinWrtApi {
     return asusToken;
   }
 
-  public async getClientList(): Promise<unknown> {
+  public async getClientList(): Promise<ClientList> {
     if (this._authToken === '') {
       await this.getAuthToken();
     }
@@ -66,7 +69,7 @@ export class NodeMerlinWrtApi {
         body: undefined,
       },
     );
-    return response.json();
+    return new ClientList(await response.json() as GetClientListResponse);
   }
 
   public async logout(): Promise<void> {
