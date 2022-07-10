@@ -1,6 +1,6 @@
 import fetch, { HeaderInit, Response } from 'node-fetch';
 import { Agent } from 'https';
-import { ClientList, GetClientListResponse } from "./Models";
+import { ClientList, GetClientListResponse } from './Models';
 
 export * from './Models';
 
@@ -8,6 +8,7 @@ export class NodeMerlinWrtApi {
   private _authToken: string = '';
   private readonly _agent: Agent;
   private readonly _basicAuth: string;
+
   public constructor(
     private _username: string,
     private _password: string,
@@ -17,8 +18,9 @@ export class NodeMerlinWrtApi {
     this._agent = new Agent({ rejectUnauthorized: !ignoreSSL });
     this._basicAuth = Buffer.from(`${this._username}:${this._password}`).toString('base64');
   }
+
   public async getAuthToken(forceNew: boolean = false): Promise<string> {
-    if(!forceNew && this._authToken !== '') {
+    if (!forceNew && this._authToken !== '') {
       return this._authToken;
     }
     const loginData: { [name: string]: string } = {
@@ -69,7 +71,7 @@ export class NodeMerlinWrtApi {
         body: undefined,
       },
     );
-    return new ClientList(await response.json() as GetClientListResponse);
+    return new ClientList((await response.json()) as GetClientListResponse);
   }
 
   public async logout(): Promise<void> {
