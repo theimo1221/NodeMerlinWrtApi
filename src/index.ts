@@ -1,7 +1,6 @@
 import fetch, { HeaderInit, Response } from 'node-fetch';
 import { Agent } from 'https';
-import { Client, ClientList, GetClientListResponse } from './Models';
-import { DeviceAction } from './Models';
+import { Client, ClientList, DeviceAction, GetClientListResponse } from './Models';
 
 export * from './Models';
 
@@ -9,6 +8,7 @@ export class NodeMerlinWrtApi {
   private _authToken: string = '';
   private readonly _agent: Agent;
   private readonly _basicAuth: string;
+  private _clientList: ClientList | undefined;
 
   public constructor(
     private _username: string,
@@ -63,6 +63,23 @@ export class NodeMerlinWrtApi {
       },
     );
     return new ClientList((await response.json()) as GetClientListResponse);
+  }
+
+  /**
+   * Retrieve the client information for a client identified by it's ip
+   * @param {string} ip
+   * @returns {Promise<Client | null>} Null means Client not found
+   */
+  public async getClientByIp(ip: string): Promise<Client | null> {
+    this._clientList = await this.getClientList();
+    let target: Client | null = null;
+    this._clientList.clients.forEach((client) => {
+      if (client.rawData.ip === ip) {
+        target = client;
+        return false;
+      }
+    });
+    return target;
   }
 
   public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {

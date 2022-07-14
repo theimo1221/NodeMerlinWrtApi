@@ -8,7 +8,7 @@ api.getAuthToken().then((token) => {
   api.getClientList().then((data) => {
     console.log(`Recieved clients macs: ${JSON.stringify(data.macList)}`);
     console.log(`First client: ${JSON.stringify(data.clients.values().next())}`);
-    api.performDeviceActionByMac('7C:10:C9:30:61:70', DeviceAction.REBOOT).then((result) => {
+    api.performDeviceActionByMac('20:4E:F6:66:38:D0', DeviceAction.RECONNECT).then((result) => {
       console.log(`Restarting device resulted in: ${result}`);
       api.logout().then(() => {
         process.exit(1);

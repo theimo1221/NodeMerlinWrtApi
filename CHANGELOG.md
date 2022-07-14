@@ -4,6 +4,9 @@
   Placeholder for the next version (at the beginning of the line):
   ## **WORK IN PROGRESS**
 -->
+## **WORK IN PROGRESS**
+* (theimo1221) Allow Client Lookup by Ip
+
 ## 0.0.2-alpha.2 (2022-07-14)
 * (theimo1221) Implement Device Actions reboot and reconnect
 
