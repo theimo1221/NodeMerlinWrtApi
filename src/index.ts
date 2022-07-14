@@ -1,6 +1,7 @@
 import fetch, { HeaderInit, Response } from 'node-fetch';
 import { Agent } from 'https';
-import { ClientList, GetClientListResponse } from './Models';
+import { Client, ClientList, GetClientListResponse } from './Models';
+import { DeviceAction } from './Models';
 
 export * from './Models';
 
@@ -49,9 +50,6 @@ export class NodeMerlinWrtApi {
   }
 
   public async getClientList(): Promise<ClientList> {
-    if (this._authToken === '') {
-      await this.getAuthToken();
-    }
     const requestData = {
       hook: 'get_clientlist()',
     };
@@ -60,18 +58,32 @@ export class NodeMerlinWrtApi {
       {
         agent: this._agent,
         method: 'GET',
-        headers: {
-          accept: 'application/json, text/javascript, */*; q=0.01',
-          'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-          'cache-control': 'no-cache',
-          referer: `${this._routerAddress}/index.asp`,
-          cookie: `asus_token=${this._authToken}; HttpOnly;`,
-          connection: 'close',
-        },
+        headers: await this.getDefaultHeader(),
         body: undefined,
       },
     );
     return new ClientList((await response.json()) as GetClientListResponse);
+  }
+
+  public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {
+    return await this.performDeviceActionByMac(client.rawData.mac, action);
+  }
+
+  public async performDeviceActionByMac(mac: string, action: DeviceAction): Promise<boolean> {
+    const requestData = {
+      device_list: mac,
+      action_mode: action,
+    };
+    const response: Response = await fetch(
+      `${this._routerAddress}/applyapp.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
+      {
+        agent: this._agent,
+        method: 'GET',
+        headers: await this.getDefaultHeader('AiMesh.asp'),
+        body: undefined,
+      },
+    );
+    return response.status === 200;
   }
 
   public async logout(): Promise<void> {
@@ -87,12 +99,12 @@ export class NodeMerlinWrtApi {
     this._authToken = '';
   }
 
-  private async getDefaultHeader(): Promise<HeaderInit> {
+  private async getDefaultHeader(referer: string = 'index.asp'): Promise<HeaderInit> {
     return {
       accept: 'application/json, text/javascript, */*; q=0.01',
       'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
       'cache-control': 'no-cache',
-      referer: `${this._routerAddress}/index.asp`,
+      referer: `${this._routerAddress}/${referer}`,
       cookie: `asus_token=${await this.getAuthToken()}; HttpOnly;`,
       connection: 'close',
     };
