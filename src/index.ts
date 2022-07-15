@@ -53,16 +53,29 @@ export class NodeMerlinWrtApi {
     const requestData = {
       hook: 'get_clientlist()',
     };
-    const response: Response = await fetch(
-      `${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
-      {
-        agent: this._agent,
-        method: 'GET',
-        headers: await this.getDefaultHeader(),
-        body: undefined,
-      },
-    );
-    return new ClientList((await response.json()) as GetClientListResponse);
+    return new Promise<ClientList>(async (res, rej) => {
+      const response: Response = await fetch(
+        `${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
+        {
+          agent: this._agent,
+          method: 'GET',
+          headers: await this.getDefaultHeader(),
+          body: undefined,
+        },
+      );
+      if (response.status !== 200) {
+        rej(`GetClientList failed with Status ${response.status}`);
+        return;
+      }
+      let clientListResponse: GetClientListResponse;
+      try {
+        clientListResponse = (await response.json()) as GetClientListResponse;
+      } catch (e) {
+        rej(`GetClientList failed with non JSON Response`);
+        return;
+      }
+      res(new ClientList(clientListResponse));
+    });
   }
 
   /**
@@ -71,15 +84,23 @@ export class NodeMerlinWrtApi {
    * @returns {Promise<Client | null>} Null means Client not found
    */
   public async getClientByIp(ip: string): Promise<Client | null> {
-    this._clientList = await this.getClientList();
-    let target: Client | null = null;
-    this._clientList.clients.forEach((client) => {
-      if (client.rawData.ip === ip) {
-        target = client;
-        return false;
-      }
+    return new Promise<Client | null>((res, rej) => {
+      this.getClientList()
+        .then((list) => {
+          this._clientList = list;
+          let target: Client | null = null;
+          this._clientList.clients.forEach((client) => {
+            if (client.rawData.ip === ip) {
+              target = client;
+              return false;
+            }
+          });
+          res(target);
+        })
+        .catch((reason) => {
+          rej(`Couldn't retrieve IP, reason: "${reason}"`);
+        });
     });
-    return target;
   }
 
   public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {

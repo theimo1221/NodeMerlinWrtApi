@@ -6,6 +6,7 @@
 -->
 ## **WORK IN PROGRESS**
 * (theimo1221) Reduce Logging
+* (theimo1221) Add some rejects in promises
 ## 0.0.2-alpha.3 (2022-07-14)
 * (theimo1221) Allow Client Lookup by Ip
 
