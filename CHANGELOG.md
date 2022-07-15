@@ -4,6 +4,9 @@
   Placeholder for the next version (at the beginning of the line):
   ## **WORK IN PROGRESS**
 -->
+## **WORK IN PROGRESS**
+* (theimo1221) Harden getAuthToken against concurrent calls
+
 ## 0.0.2-alpha.4 (2022-07-15)
 * (theimo1221) Reduce Logging
 * (theimo1221) Add some rejects in promises

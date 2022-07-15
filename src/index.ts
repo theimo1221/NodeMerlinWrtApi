@@ -9,6 +9,7 @@ export class NodeMerlinWrtApi {
   private readonly _agent: Agent;
   private readonly _basicAuth: string;
   private _clientList: ClientList | undefined;
+  private _loginRunning: boolean = false;
 
   public constructor(
     private _username: string,
@@ -24,29 +25,42 @@ export class NodeMerlinWrtApi {
     if (!forceNew && this._authToken !== '') {
       return this._authToken;
     }
-    const loginData: { [name: string]: string } = {
-      current_page: 'Main_Login.asp',
-      login_authorization: this._basicAuth,
-    };
+    return new Promise<string>(async (res, _rej) => {
+      if (this._loginRunning) {
+        const interval: NodeJS.Timer = setInterval(() => {
+          if (this._authToken !== '') {
+            clearInterval(interval);
+            res(this._authToken);
+          }
+        }, 500);
+        return;
+      }
+      this._loginRunning = true;
+      const loginData: { [name: string]: string } = {
+        current_page: 'Main_Login.asp',
+        login_authorization: this._basicAuth,
+      };
 
-    const response: Response = await fetch(`${this._routerAddress}/login.cgi`, {
-      agent: this._agent,
-      method: 'POST',
-      headers: {
-        accept: 'application/json, text/javascript, */*; q=0.01',
-        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-        'cache-control': 'no-cache',
-        'content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        referer: `${this._routerAddress}/Main_Login.asp`,
-        connection: 'close',
-      },
-      body: NodeMerlinWrtApi.getFormData(loginData),
+      const response: Response = await fetch(`${this._routerAddress}/login.cgi`, {
+        agent: this._agent,
+        method: 'POST',
+        headers: {
+          accept: 'application/json, text/javascript, */*; q=0.01',
+          'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+          'cache-control': 'no-cache',
+          'content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          referer: `${this._routerAddress}/Main_Login.asp`,
+          connection: 'close',
+        },
+        body: NodeMerlinWrtApi.getFormData(loginData),
+      });
+      const cookieHeader: string = response.headers.get('Set-Cookie') ?? '';
+      const behindAsusToken: string = cookieHeader.split('asus_token=')[1] ?? '';
+      const asusToken: string = behindAsusToken.split(';')[0] ?? '';
+      this._authToken = asusToken;
+      this._loginRunning = false;
+      return asusToken;
     });
-    const cookieHeader: string = response.headers.get('Set-Cookie') ?? '';
-    const behindAsusToken: string = cookieHeader.split('asus_token=')[1] ?? '';
-    const asusToken: string = behindAsusToken.split(';')[0] ?? '';
-    this._authToken = asusToken;
-    return asusToken;
   }
 
   public async getClientList(): Promise<ClientList> {
