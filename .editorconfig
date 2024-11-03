@@ -1,0 +1,10 @@
+root = true
+
+[*.m?{ts,js,json}]
+trim_trailing_whitespace = true
+indent_size = 2
+indent_style = tab
+
+[*.md]
+indent_size = 2
+indent_style = space

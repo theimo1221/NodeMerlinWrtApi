@@ -1,23 +1,25 @@
 import config from './privateConfig.json';
 import { DeviceAction, NodeMerlinWrtApi } from '../src';
 
-const api = new NodeMerlinWrtApi(config.username, config.password, config.address, true);
-console.log('Api created');
-api.getAuthToken().then((token) => {
-  console.log(`New Auth Token: "${token}"`);
-  api.getClientList().then((data) => {
-    console.log(`Recieved clients macs: ${JSON.stringify(data.macList)}`);
-    console.log(`First client: ${JSON.stringify(data.clients.values().next())}`);
-    api.performDeviceActionByMac('20:4E:F6:66:38:D0', DeviceAction.RECONNECT).then((result) => {
-      console.log(`Restarting device resulted in: ${result}`);
-      api.logout().then(() => {
-        process.exit(1);
-      });
-    });
-  });
-});
+(async () => {
 
-process.on('uncaughtException', (err) => {
-  console.log(`Uncaught Exception: ${err.message}\n${err.stack}`);
-  process.exit(1);
-});
+  const api = new NodeMerlinWrtApi(config.username, config.password, config.address, true);
+  console.log('Api created');
+
+  const token = await api.getAuthToken()
+  console.log(`New Auth Token: "${token}"`);
+
+  const data = await api.getClientList()
+  console.log(`Recieved clients macs: ${JSON.stringify(data.macList)}`);
+  console.log(`First client: ${JSON.stringify(data.clients.values().next())}`);
+
+  const result = await api.performDeviceActionByMac('20:4E:F6:66:38:D0', DeviceAction.RECONNECT)
+  console.log(`Restarting device resulted in: ${result}`);
+
+  await api.logout()
+})().then(() => {
+  process.exit()
+}).catch(err => {
+  console.error(err)
+  process.exit(1)
+})
