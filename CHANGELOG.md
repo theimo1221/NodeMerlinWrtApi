@@ -4,6 +4,8 @@
   Placeholder for the next version (at the beginning of the line):
   ## **WORK IN PROGRESS**
 -->
+## **WORK IN PROGRESS**
+* (smoebody) Update to match new asus wrt API
 ## 0.0.2-alpha.5 (2022-07-15)
 * (theimo1221) Harden getAuthToken against concurrent calls
 
