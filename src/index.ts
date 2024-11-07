@@ -1,7 +1,5 @@
-import fetch, { HeaderInit, Response } from 'node-fetch';
-import { Agent } from 'https';
 import { Client, ClientList, DeviceAction, GetClientListResponse } from './Models';
-
+import { fetch, Agent } from 'undici'
 export * from './Models';
 
 export class NodeMerlinWrtApi {
@@ -17,7 +15,7 @@ export class NodeMerlinWrtApi {
     private _routerAddress: string,
     ignoreSSL: boolean = false,
   ) {
-    this._agent = new Agent({ rejectUnauthorized: !ignoreSSL });
+    this._agent = new Agent({ connect: { rejectUnauthorized: !ignoreSSL } });
     this._basicAuth = Buffer.from(`${this._username}:${this._password}`).toString('base64');
   }
 
@@ -27,7 +25,7 @@ export class NodeMerlinWrtApi {
     }
     return new Promise<string>(async (res, _rej) => {
       if (this._loginRunning) {
-        const interval: NodeJS.Timer = setInterval(() => {
+        const interval = setInterval(() => {
           if (this._authToken !== '') {
             clearInterval(interval);
             res(this._authToken);
@@ -41,8 +39,8 @@ export class NodeMerlinWrtApi {
         login_authorization: this._basicAuth,
       };
 
-      const response: Response = await fetch(`${this._routerAddress}/login.cgi`, {
-        agent: this._agent,
+      const response = await fetch(`${this._routerAddress}/login.cgi`, {
+        dispatcher: this._agent,
         method: 'POST',
         headers: {
           accept: 'application/json, text/javascript, */*; q=0.01',
@@ -55,11 +53,11 @@ export class NodeMerlinWrtApi {
         body: NodeMerlinWrtApi.getFormData(loginData),
       });
       const cookieHeader: string = response.headers.get('Set-Cookie') ?? '';
-      const behindAsusToken: string = cookieHeader.split('asus_token=')[1] ?? '';
+      const behindAsusToken: string = cookieHeader.split('asus_s_token=')[1] ?? '';
       const asusToken: string = behindAsusToken.split(';')[0] ?? '';
       this._authToken = asusToken;
       this._loginRunning = false;
-      return asusToken;
+      res(asusToken);
     });
   }
 
@@ -68,10 +66,10 @@ export class NodeMerlinWrtApi {
       hook: 'get_clientlist()',
     };
     return new Promise<ClientList>(async (res, rej) => {
-      const response: Response = await fetch(
+      const response = await fetch(
         `${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
         {
-          agent: this._agent,
+          dispatcher: this._agent,
           method: 'GET',
           headers: await this.getDefaultHeader(),
           body: undefined,
@@ -86,6 +84,7 @@ export class NodeMerlinWrtApi {
         clientListResponse = (await response.json()) as GetClientListResponse;
       } catch (e) {
         rej(`GetClientList failed with non JSON Response`);
+        console.error(e)
         return;
       }
       res(new ClientList(clientListResponse));
@@ -126,10 +125,10 @@ export class NodeMerlinWrtApi {
       device_list: mac,
       action_mode: action,
     };
-    const response: Response = await fetch(
+    const response = await fetch(
       `${this._routerAddress}/applyapp.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
       {
-        agent: this._agent,
+        dispatcher: this._agent,
         method: 'GET',
         headers: await this.getDefaultHeader('AiMesh.asp'),
         body: undefined,
@@ -143,7 +142,7 @@ export class NodeMerlinWrtApi {
       return;
     }
     await fetch(`${this._routerAddress}/Logout.asp`, {
-      agent: this._agent,
+      dispatcher: this._agent,
       method: 'GET',
       headers: await this.getDefaultHeader(),
       body: undefined,
@@ -151,7 +150,7 @@ export class NodeMerlinWrtApi {
     this._authToken = '';
   }
 
-  private async getDefaultHeader(referer: string = 'index.asp'): Promise<HeaderInit> {
+  private async getDefaultHeader(referer: string = 'index.asp'): Promise<HeadersInit> {
     return {
       accept: 'application/json, text/javascript, */*; q=0.01',
       'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
