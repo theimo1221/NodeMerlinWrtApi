@@ -1,173 +1,267 @@
-import { Client, ClientList, DeviceAction, GetClientListResponse } from './Models';
-import { fetch, Agent } from 'undici'
-export * from './Models';
+import { ClientListException } from './Exceptions/ClientListException'
+import { LoginException } from './Exceptions/LoginException'
+import { Client, ClientList, DeviceAction, GetClientListResponse, IpTraffic } from './Models'
+import { fetch, Agent, Response } from 'undici'
+export * from './Models'
 
 export class NodeMerlinWrtApi {
-  private _authToken: string = '';
-  private readonly _agent: Agent;
-  private readonly _basicAuth: string;
-  private _clientList: ClientList | undefined;
-  private _loginRunning: boolean = false;
+	private readonly _agent: Agent
+	private readonly _basicAuth: string
+	private readonly _url: URL
 
-  public constructor(
-    private _username: string,
-    private _password: string,
-    private _routerAddress: string,
-    ignoreSSL: boolean = false,
-  ) {
-    this._agent = new Agent({ connect: { rejectUnauthorized: !ignoreSSL } });
-    this._basicAuth = Buffer.from(`${this._username}:${this._password}`).toString('base64');
-  }
+	private clientListPromise: Promise<GetClientListResponse> | null = null
+	private clientPromise: Promise<Response> | null = null
 
-  public async getAuthToken(forceNew: boolean = false): Promise<string> {
-    if (!forceNew && this._authToken !== '') {
-      return this._authToken;
-    }
-    return new Promise<string>(async (res, _rej) => {
-      if (this._loginRunning) {
-        const interval = setInterval(() => {
-          if (this._authToken !== '') {
-            clearInterval(interval);
-            res(this._authToken);
-          }
-        }, 500);
-        return;
-      }
-      this._loginRunning = true;
-      const loginData: { [name: string]: string } = {
-        current_page: 'Main_Login.asp',
-        login_authorization: this._basicAuth,
-      };
+	/**
+	 * creates a new API object
+	 *
+	 * @param username username
+	 * @param password password
+	 * @param url url
+	 * @param ignoreSSL
+	 */
+	public constructor(
+		username: string,
+		password: string,
+		url: string,
+		ignoreSSL: boolean = false
+	) {
+		this._url = new URL(url)
+		this._agent = new Agent({ connect: { rejectUnauthorized: !ignoreSSL } })
+		this._basicAuth = Buffer.from(`${username}:${password}`).toString('base64')
+	}
 
-      const response = await fetch(`${this._routerAddress}/login.cgi`, {
-        dispatcher: this._agent,
-        method: 'POST',
-        headers: {
-          accept: 'application/json, text/javascript, */*; q=0.01',
-          'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-          'cache-control': 'no-cache',
-          'content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          referer: `${this._routerAddress}/Main_Login.asp`,
-          connection: 'close',
-        },
-        body: NodeMerlinWrtApi.getFormData(loginData),
-      });
-      const cookieHeader: string = response.headers.get('Set-Cookie') ?? '';
-      const behindAsusToken: string = cookieHeader.split('asus_s_token=')[1] ?? '';
-      const asusToken: string = behindAsusToken.split(';')[0] ?? '';
-      this._authToken = asusToken;
-      this._loginRunning = false;
-      res(asusToken);
-    });
-  }
+	/**
+	 * Returns the clients agent
+	 * (the agent is needed by undicis MockAgent in order to mock tests)
+	 *
+	 * @returns Agent
+	 */
+	getAgent() {
+		return this._agent
+	}
 
-  public async getClientList(): Promise<ClientList> {
-    const requestData = {
-      hook: 'get_clientlist()',
-    };
-    return new Promise<ClientList>(async (res, rej) => {
-      const response = await fetch(
-        `${this._routerAddress}/appGet.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
-        {
-          dispatcher: this._agent,
-          method: 'GET',
-          headers: await this.getDefaultHeader(),
-          body: undefined,
-        },
-      );
-      if (response.status !== 200) {
-        rej(`GetClientList failed with Status ${response.status}`);
-        return;
-      }
-      let clientListResponse: GetClientListResponse;
-      try {
-        clientListResponse = (await response.json()) as GetClientListResponse;
-      } catch (e) {
-        rej(`GetClientList failed with non JSON Response`);
-        console.error(e)
-        return;
-      }
-      res(new ClientList(clientListResponse));
-    });
-  }
+	/**
+	 * logs in based on the set credentials
+	 */
+	private login(): void {
+		this.clientPromise = fetch(new URL('/login.cgi', this._url), {
+			dispatcher: this._agent,
+			method: 'POST',
+			headers: {
+				accept: 'application/json, text/javascript, */*; q=0.01',
+				'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+				'cache-control': 'no-cache',
+				'content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+				referer: new URL('/Main_Login.asp', this._url).toString(),
+				connection: 'close',
+			},
+			body: new URLSearchParams({
+				'current_page': 'Main_Login.asp',
+				'login_authorization': this._basicAuth
+			}).toString()
+		})
+	}
 
-  /**
-   * Retrieve the client information for a client identified by it's ip
-   * @param {string} ip
-   * @returns {Promise<Client | null>} Null means Client not found
-   */
-  public async getClientByIp(ip: string): Promise<Client | null> {
-    return new Promise<Client | null>((res, rej) => {
-      this.getClientList()
-        .then((list) => {
-          this._clientList = list;
-          let target: Client | null = null;
-          this._clientList.clients.forEach((client) => {
-            if (client.rawData.ip === ip) {
-              target = client;
-              return false;
-            }
-          });
-          res(target);
-        })
-        .catch((reason) => {
-          rej(`Couldn't retrieve IP, reason: "${reason}"`);
-        });
-    });
-  }
+	/**
+	 * Retrieves the access token after successful login
+	 *
+	 * @param force if set to true a new login request is performed and the token reparsed
+	 * @returns the parsed access token from the Set-Cookie header
+	 */
+	public async getAuthToken(force = false): Promise<string> {
+		if (!this.clientPromise || force) this.login()
 
-  public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {
-    return await this.performDeviceActionByMac(client.rawData.mac, action);
-  }
+		try {
+			const response = await this.clientPromise
+			if (!response) throw Error('no login response available')
 
-  public async performDeviceActionByMac(mac: string, action: DeviceAction): Promise<boolean> {
-    const requestData = {
-      device_list: mac,
-      action_mode: action,
-    };
-    const response = await fetch(
-      `${this._routerAddress}/applyapp.cgi?${NodeMerlinWrtApi.getFormData(requestData)}`,
-      {
-        dispatcher: this._agent,
-        method: 'GET',
-        headers: await this.getDefaultHeader('AiMesh.asp'),
-        body: undefined,
-      },
-    );
-    return response.status === 200;
-  }
+			const cookieHeader = response.headers.get('Set-Cookie')
+			if (!cookieHeader) throw Error('no "Set-Cookie" header in response. Login probably did not succeed', {
+				cause: { httpStatus: response.status }
+			})
 
-  public async logout(): Promise<void> {
-    if (this._authToken === '') {
-      return;
-    }
-    await fetch(`${this._routerAddress}/Logout.asp`, {
-      dispatcher: this._agent,
-      method: 'GET',
-      headers: await this.getDefaultHeader(),
-      body: undefined,
-    });
-    this._authToken = '';
-  }
+			const behindAsusToken = cookieHeader.match(/asus_s_token=([^;]+)/)
+			if (!behindAsusToken) throw new Error('could not find access token in cookie', {
+				cause: {
+					cookie: cookieHeader,
+					httpStatus: response.status
+				}
+			})
 
-  private async getDefaultHeader(referer: string = 'index.asp'): Promise<HeadersInit> {
-    return {
-      accept: 'application/json, text/javascript, */*; q=0.01',
-      'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-      'cache-control': 'no-cache',
-      referer: `${this._routerAddress}/${referer}`,
-      cookie: `asus_token=${await this.getAuthToken()}; HttpOnly;`,
-      connection: 'close',
-    };
-  }
+			return behindAsusToken[1]
 
-  private static getFormData(dict: { [name: string]: string }): string {
-    const formParts: string[] = [];
-    for (const property in dict) {
-      const encodedKey: string = encodeURIComponent(property);
-      const encodedValue: string = encodeURIComponent(dict[property]);
-      formParts.push(encodedKey + '=' + encodedValue);
-    }
-    return formParts.join('&');
-  }
+		} catch (cause) {
+			throw new LoginException("an error occurd while retrieving auth token", { cause })
+		}
+	}
+
+	/**
+	 * Retrieves a client list
+	 *
+	 * @param force if set to true the clientlist is retrieved despite is has been retrieved earlier
+	 * @returns client list
+	 */
+	public async getClientList(force = false): Promise<ClientList> {
+		try {
+			const url = new URL('/appGet.cgi', this._url)
+			url.search = new URLSearchParams({ 'hook': 'get_clientlist()' }).toString()
+
+			if (!this.clientListPromise || force) {
+				await fetch(url, {
+					dispatcher: this._agent,
+					method: 'GET',
+					headers: await this.getDefaultHeader(),
+				}).then(response => {
+					if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`)
+					this.clientListPromise = response.json() as Promise<GetClientListResponse>
+					return
+				}
+				)
+			}
+
+			const clientListResponse = await this.clientListPromise
+			if (!clientListResponse) throw Error('client list is unset')
+
+			return new ClientList(clientListResponse)
+		} catch (cause) {
+			throw new ClientListException("something went wrong while retrieving a client list", { cause })
+		}
+	}
+
+	/**
+	 * Retrieve the client information for a client identified by it's ip
+	 * @param {string} value ip of the client
+	 * @returns {Promise<Client | null>} Null means Client not found
+	 */
+	public async getClientByIp(value: string): Promise<Client | null> {
+		const clientList = await this.getClientList()
+
+		for (const [_, client] of clientList.clients) {
+			if (client.rawData.ip === value) return client
+		}
+
+		return null
+	}
+
+	/**
+	 * Retrieves the client information for a client identified by its mac address
+	 *
+	 * @param value the mac of the client to return
+	 * @returns client or null if none found
+	 */
+	public async getClientByMac(value: string): Promise<Client | null> {
+		const clientList = await this.getClientList()
+
+		for (const [mac, client] of clientList.clients) {
+			if (mac === value) return client
+		}
+
+		return null
+	}
+
+	/**
+	 * Retrieves a list of network traffic metrics per mac address
+	 *
+	 * @returns list of traffic metrics per mac
+	 */
+	public async getIpTraffic(): Promise<IpTraffic> {
+		const response = await fetch(new URL('/getTraffic.asp', this._url), {
+			dispatcher: this._agent,
+			method: 'GET',
+			headers: await this.getDefaultHeader(),
+		}
+		)
+		if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`)
+
+		const data = await response.text()
+		return NodeMerlinWrtApi.parseIpTraffic(data)
+	}
+
+	/**
+	 * Performs an action for a client
+	 *
+	 * @param client to perform the action upon
+	 * @param action to perform on the client
+	 * @returns boolean true or false
+	 */
+	public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {
+		return await this.performDeviceActionByMac(client.rawData.mac, action)
+	}
+
+	/**
+	 * performs an action for a client identified by its mac address
+	 *
+	 * @param mac address of the client
+	 * @param action the action to perform
+	 * @returns true if status equals 200 or false otherwise
+	 */
+	public async performDeviceActionByMac(mac: string, action: DeviceAction): Promise<boolean> {
+		const url = new URL('/applyapp.cgi', this._url)
+		url.search = new URLSearchParams({
+			device_list: mac,
+			action_mode: action
+		}).toString()
+
+		const response = await fetch(url, {
+			dispatcher: this._agent,
+			method: 'GET',
+			headers: await this.getDefaultHeader('AiMesh.asp'),
+		},
+		)
+		return response.status === 200
+	}
+
+	/**
+	 * Logs out the client
+	 */
+	public async logout(): Promise<void> {
+		await fetch(new URL('/Logout.asp', this._url), {
+			dispatcher: this._agent,
+			method: 'GET',
+			headers: await this.getDefaultHeader(),
+		})
+		this.clientPromise = null
+	}
+
+	/**
+	 * Returns an object of default headers to set
+	 *
+	 * @param referer referrer page
+	 * @returns object of headers
+	 */
+	private async getDefaultHeader(referer: string = 'index.asp'): Promise<HeadersInit> {
+		return {
+			accept: 'application/json, text/javascript, */*; q=0.01',
+			'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+			'cache-control': 'no-cache',
+			referer: new URL(referer, this._url).toString(),
+			cookie: `asus_token=${await this.getAuthToken()}; HttpOnly;`,
+			connection: 'close',
+		}
+	}
+
+	/**
+	 * parses javscript as eval in a safe context
+	 *
+	 * @param evil javscript string to evaluate
+	 * @returns evaluated result
+	 */
+	private static parseIpTraffic(evil: string): IpTraffic {
+		const obj = eval?.(`"use strict";${evil};var obj = { router_traffic: router_traffic, array_traffic: array_traffic }; obj`)
+
+		return {
+			clients: obj.array_traffic.map((item: string[]) => {
+				return {
+					mac: item[0],
+					tx: item[1],
+					rx: item[2]
+				}
+			}),
+			router: {
+				tx: obj.router_traffic[0],
+				rx: obj.router_traffic[1]
+			}
+		}
+	}
 }

@@ -1,4 +1,4 @@
-import { SingleClientData } from './singleClientData';
+import { SingleClientData } from './singleClientData'
 
 export interface GetClientListResponse {
   get_clientlist: {
