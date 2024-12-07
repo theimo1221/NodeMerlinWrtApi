@@ -21,7 +21,7 @@ export default [
         }
       ],
       "no-async-promise-executor": "warn",
-      "semi": [2, "never"]
+      "semi": [2, "always"]
     }
   },
 ];

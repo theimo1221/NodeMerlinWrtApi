@@ -1,16 +1,16 @@
-import { ClientListException } from './Exceptions/ClientListException'
-import { LoginException } from './Exceptions/LoginException'
-import { Client, ClientList, DeviceAction, GetClientListResponse, IpTraffic } from './Models'
-import { fetch, Agent, Response } from 'undici'
-export * from './Models'
+import { ClientListException } from './Exceptions/ClientListException';
+import { LoginException } from './Exceptions/LoginException';
+import { Client, ClientList, DeviceAction, GetClientListResponse, IpTraffic } from './Models';
+import { fetch, Agent, Response } from 'undici';
+export * from './Models';
 
 export class NodeMerlinWrtApi {
-	private readonly _agent: Agent
-	private readonly _basicAuth: string
-	private readonly _url: URL
+	private readonly _agent: Agent;
+	private readonly _basicAuth: string;
+	private readonly _url: URL;
 
-	private clientListPromise: Promise<GetClientListResponse> | null = null
-	private clientPromise: Promise<Response> | null = null
+	private clientListPromise: Promise<GetClientListResponse> | null = null;
+	private clientPromise: Promise<Response> | null = null;
 
 	/**
 	 * creates a new API object
@@ -26,9 +26,9 @@ export class NodeMerlinWrtApi {
 		url: string,
 		ignoreSSL: boolean = false
 	) {
-		this._url = new URL(url)
-		this._agent = new Agent({ connect: { rejectUnauthorized: !ignoreSSL } })
-		this._basicAuth = Buffer.from(`${username}:${password}`).toString('base64')
+		this._url = new URL(url);
+		this._agent = new Agent({ connect: { rejectUnauthorized: !ignoreSSL } });
+		this._basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
 	}
 
 	/**
@@ -38,7 +38,7 @@ export class NodeMerlinWrtApi {
 	 * @returns Agent
 	 */
 	getAgent() {
-		return this._agent
+		return this._agent;
 	}
 
 	/**
@@ -60,7 +60,7 @@ export class NodeMerlinWrtApi {
 				'current_page': 'Main_Login.asp',
 				'login_authorization': this._basicAuth
 			}).toString()
-		})
+		});
 	}
 
 	/**
@@ -70,29 +70,29 @@ export class NodeMerlinWrtApi {
 	 * @returns the parsed access token from the Set-Cookie header
 	 */
 	public async getAuthToken(force = false): Promise<string> {
-		if (!this.clientPromise || force) this.login()
+		if (!this.clientPromise || force) this.login();
 
 		try {
-			const response = await this.clientPromise
-			if (!response) throw Error('no login response available')
+			const response = await this.clientPromise;
+			if (!response) throw Error('no login response available');
 
-			const cookieHeader = response.headers.get('Set-Cookie')
+			const cookieHeader = response.headers.get('Set-Cookie');
 			if (!cookieHeader) throw Error('no "Set-Cookie" header in response. Login probably did not succeed', {
 				cause: { httpStatus: response.status }
-			})
+			});
 
-			const behindAsusToken = cookieHeader.match(/asus_s_token=([^;]+)/)
+			const behindAsusToken = cookieHeader.match(/asus_s_token=([^;]+)/);
 			if (!behindAsusToken) throw new Error('could not find access token in cookie', {
 				cause: {
 					cookie: cookieHeader,
 					httpStatus: response.status
 				}
-			})
+			});
 
-			return behindAsusToken[1]
+			return behindAsusToken[1];
 
 		} catch (cause) {
-			throw new LoginException("an error occurd while retrieving auth token", { cause })
+			throw new LoginException("an error occurd while retrieving auth token", { cause });
 		}
 	}
 
@@ -104,8 +104,8 @@ export class NodeMerlinWrtApi {
 	 */
 	public async getClientList(force = false): Promise<ClientList> {
 		try {
-			const url = new URL('/appGet.cgi', this._url)
-			url.search = new URLSearchParams({ 'hook': 'get_clientlist()' }).toString()
+			const url = new URL('/appGet.cgi', this._url);
+			url.search = new URLSearchParams({ 'hook': 'get_clientlist()' }).toString();
 
 			if (!this.clientListPromise || force) {
 				await fetch(url, {
@@ -113,19 +113,19 @@ export class NodeMerlinWrtApi {
 					method: 'GET',
 					headers: await this.getDefaultHeader(),
 				}).then(response => {
-					if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`)
-					this.clientListPromise = response.json() as Promise<GetClientListResponse>
-					return
+					if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`);
+					this.clientListPromise = response.json() as Promise<GetClientListResponse>;
+					return;
 				}
-				)
+				);
 			}
 
-			const clientListResponse = await this.clientListPromise
-			if (!clientListResponse) throw Error('client list is unset')
+			const clientListResponse = await this.clientListPromise;
+			if (!clientListResponse) throw Error('client list is unset');
 
-			return new ClientList(clientListResponse)
+			return new ClientList(clientListResponse);
 		} catch (cause) {
-			throw new ClientListException("something went wrong while retrieving a client list", { cause })
+			throw new ClientListException("something went wrong while retrieving a client list", { cause });
 		}
 	}
 
@@ -135,13 +135,13 @@ export class NodeMerlinWrtApi {
 	 * @returns {Promise<Client | null>} Null means Client not found
 	 */
 	public async getClientByIp(value: string): Promise<Client | null> {
-		const clientList = await this.getClientList()
+		const clientList = await this.getClientList();
 
 		for (const [_, client] of clientList.clients) {
-			if (client.rawData.ip === value) return client
+			if (client.rawData.ip === value) return client;
 		}
 
-		return null
+		return null;
 	}
 
 	/**
@@ -151,13 +151,13 @@ export class NodeMerlinWrtApi {
 	 * @returns client or null if none found
 	 */
 	public async getClientByMac(value: string): Promise<Client | null> {
-		const clientList = await this.getClientList()
+		const clientList = await this.getClientList();
 
 		for (const [mac, client] of clientList.clients) {
-			if (mac === value) return client
+			if (mac === value) return client;
 		}
 
-		return null
+		return null;
 	}
 
 	/**
@@ -171,11 +171,11 @@ export class NodeMerlinWrtApi {
 			method: 'GET',
 			headers: await this.getDefaultHeader(),
 		}
-		)
-		if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`)
+		);
+		if (response.status !== 200) throw Error(`GetClientList failed with Status ${response.status}`);
 
-		const data = await response.text()
-		return NodeMerlinWrtApi.parseIpTraffic(data)
+		const data = await response.text();
+		return NodeMerlinWrtApi.parseIpTraffic(data);
 	}
 
 	/**
@@ -186,7 +186,7 @@ export class NodeMerlinWrtApi {
 	 * @returns boolean true or false
 	 */
 	public async performDeviceAction(client: Client, action: DeviceAction): Promise<boolean> {
-		return await this.performDeviceActionByMac(client.rawData.mac, action)
+		return await this.performDeviceActionByMac(client.rawData.mac, action);
 	}
 
 	/**
@@ -197,19 +197,19 @@ export class NodeMerlinWrtApi {
 	 * @returns true if status equals 200 or false otherwise
 	 */
 	public async performDeviceActionByMac(mac: string, action: DeviceAction): Promise<boolean> {
-		const url = new URL('/applyapp.cgi', this._url)
+		const url = new URL('/applyapp.cgi', this._url);
 		url.search = new URLSearchParams({
 			device_list: mac,
 			action_mode: action
-		}).toString()
+		}).toString();
 
 		const response = await fetch(url, {
 			dispatcher: this._agent,
 			method: 'GET',
 			headers: await this.getDefaultHeader('AiMesh.asp'),
 		},
-		)
-		return response.status === 200
+		);
+		return response.status === 200;
 	}
 
 	/**
@@ -220,8 +220,8 @@ export class NodeMerlinWrtApi {
 			dispatcher: this._agent,
 			method: 'GET',
 			headers: await this.getDefaultHeader(),
-		})
-		this.clientPromise = null
+		});
+		this.clientPromise = null;
 	}
 
 	/**
@@ -238,7 +238,7 @@ export class NodeMerlinWrtApi {
 			referer: new URL(referer, this._url).toString(),
 			cookie: `asus_token=${await this.getAuthToken()}; HttpOnly;`,
 			connection: 'close',
-		}
+		};
 	}
 
 	/**
@@ -248,7 +248,7 @@ export class NodeMerlinWrtApi {
 	 * @returns evaluated result
 	 */
 	private static parseIpTraffic(evil: string): IpTraffic {
-		const obj = eval?.(`"use strict";${evil};var obj = { router_traffic: router_traffic, array_traffic: array_traffic }; obj`)
+		const obj = eval?.(`"use strict";${evil};var obj = { router_traffic: router_traffic, array_traffic: array_traffic }; obj`);
 
 		return {
 			clients: obj.array_traffic.map((item: string[]) => {
@@ -256,12 +256,12 @@ export class NodeMerlinWrtApi {
 					mac: item[0],
 					tx: item[1],
 					rx: item[2]
-				}
+				};
 			}),
 			router: {
 				tx: obj.router_traffic[0],
 				rx: obj.router_traffic[1]
 			}
-		}
+		};
 	}
 }
