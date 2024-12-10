@@ -64,7 +64,6 @@ then attach your node inspector of choice to port `9229`, e.g. with vscode and t
     "type": "node",
     "request": "attach",
     "name": "Docker: Attach to Node",
-    "remoteRoot": "/usr/src/app",
     "port": 9229,
     "remoteRoot": "/src",
     "localRoot": "${workspaceFolder}"

@@ -20,8 +20,8 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         }
       ],
-      "no-async-promise-executor": "warn"
+      "no-async-promise-executor": "warn",
+      "semi": [2, "always"]
     }
-  }
-
+  },
 ];
