@@ -4,6 +4,16 @@
   Placeholder for the next version (at the beginning of the line):
   ## **WORK IN PROGRESS**
 -->
+## **WORK IN PROGRESS**
+* (smoebody) adds function docs
+* (smoebody) utilises built in functions for sanitising
+* (smoebody) caches login responses as promise
+* (smoebody) caches getClientList response as promise
+* (smoebody) introduces getClientByMac(), getIpTraffic()
+* (smoebody) introduces custom exceptions
+* (smoebody) changes code style, updates packages
+* (smoebody) adds multiple node build targets, removes v16
+* (smoebody) adds first tests
 ## 0.0.2 (2024-11-07)
 * (smoebody) Update to match new asus wrt API
 
