@@ -1,7 +1,7 @@
 {
   "name": "node-merlin-wrt-api",
   "description": "An npm package to retrieve data and send commands to an asus Router running Merlin WRT",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "files": [
     "lib/**/*"
   ],
