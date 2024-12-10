@@ -24,7 +24,7 @@
     "watch": "tsc --watch",
     "prepare": "npm run build",
     "debug-test": "tsx Example/example.ts",
-    "full-test": "npm run lint-check-all && npm run jest-coverage",
+    "full-test": "npm run lint-check-all && npm run test-coverage",
     "test": "jest",
     "test-coverage": "jest --coverage",
     "release": "release-script",
